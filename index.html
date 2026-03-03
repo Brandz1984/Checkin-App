@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Event Registration</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0f0f0f;
+    --paper: #f5f2ed;
+    --gold: #b8963e;
+    --gold-light: #d4af6a;
+    --rule: #d0c9be;
+    --white: #ffffff;
+    --success: #2d6a4f;
+    --error: #8b1a1a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 20px;
+  }
+
+  .letterhead {
+    width: 100%;
+    max-width: 560px;
+    text-align: center;
+    margin-bottom: 48px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .rule-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .rule-top::before, .rule-top::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--gold));
+  }
+  .rule-top::after {
+    background: linear-gradient(to left, transparent, var(--gold));
+  }
+  .diamond {
+    width: 8px; height: 8px;
+    background: var(--gold);
+    transform: rotate(45deg);
+    flex-shrink: 0;
+  }
+
+  .event-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: #6b6358;
+    line-height: 1.7;
+  }
+
+  .rule-bottom {
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--rule), transparent);
+    margin-top: 28px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 560px;
+    background: var(--white);
+    border: 1px solid var(--rule);
+    padding: 48px;
+    animation: fadeUp 0.6s 0.15s ease both;
+    opacity: 0;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .field {
+    margin-bottom: 24px;
+  }
+  .field.full { grid-column: 1 / -1; }
+
+  label {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+
+  input {
+    width: 100%;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 12px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+    border-radius: 0;
+    -webkit-appearance: none;
+  }
+  input:focus { border-color: var(--gold); background: #faf8f4; }
+  input::placeholder { color: #b0a99e; }
+
+  .submit-btn {
+    width: 100%;
+    background: var(--ink);
+    color: var(--white);
+    border: none;
+    padding: 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 8px;
+  }
+  .submit-btn:hover { background: #2a2a2a; }
+  .submit-btn:active { transform: scale(0.99); }
+  .submit-btn:disabled { background: #999; cursor: not-allowed; }
+
+  .status {
+    margin-top: 20px;
+    padding: 14px 18px;
+    font-size: 13px;
+    display: none;
+    border-left: 3px solid;
+  }
+  .status.success {
+    display: block;
+    background: #f0f7f4;
+    border-color: var(--success);
+    color: var(--success);
+  }
+  .status.error {
+    display: block;
+    background: #fdf0f0;
+    border-color: var(--error);
+    color: var(--error);
+  }
+
+  /* Success overlay */
+  .success-panel {
+    display: none;
+    width: 100%;
+    max-width: 560px;
+    background: var(--white);
+    border: 1px solid var(--rule);
+    padding: 48px;
+    text-align: center;
+    animation: fadeUp 0.5s ease both;
+  }
+  .success-panel.visible { display: block; }
+
+  .success-panel h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .success-panel p {
+    font-size: 14px;
+    color: #6b6358;
+    line-height: 1.7;
+    margin-bottom: 28px;
+  }
+
+  #qrcode {
+    display: flex;
+    justify-content: center;
+    margin: 0 auto 20px;
+  }
+  #qrcode canvas, #qrcode img {
+    border: 8px solid var(--paper);
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .reg-id {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: #999;
+    margin-top: 12px;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 520px) {
+    .card, .success-panel { padding: 32px 24px; }
+    .form-row { grid-template-columns: 1fr; }
+    .field.full { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="letterhead">
+  <div class="rule-top"><div class="diamond"></div></div>
+  <div class="event-label">Official Registration</div>
+  <h1>YOUR EVENT NAME</h1>
+  <p class="subtitle">Complete the form below to secure your place.<br>A confirmation with your entry QR code will be emailed to you.</p>
+  <div class="rule-bottom"></div>
+</div>
+
+<div class="card" id="formCard">
+  <div class="form-row">
+    <div class="field">
+      <label for="firstName">First Name</label>
+      <input type="text" id="firstName" placeholder="e.g. Jane" required />
+    </div>
+    <div class="field">
+      <label for="surname">Surname</label>
+      <input type="text" id="surname" placeholder="e.g. Smith" required />
+    </div>
+    <div class="field full">
+      <label for="email">Email Address</label>
+      <input type="email" id="email" placeholder="jane.smith@example.com" required />
+    </div>
+    <div class="field">
+      <label for="phone">Phone Number</label>
+      <input type="tel" id="phone" placeholder="+27 82 000 0000" />
+    </div>
+    <div class="field">
+      <label for="dpNumber">DP Number</label>
+      <input type="text" id="dpNumber" placeholder="e.g. DP-00123" required />
+    </div>
+  </div>
+
+  <button class="submit-btn" id="submitBtn" onclick="handleRegister()">Register for the Event</button>
+  <div class="status" id="statusMsg"></div>
+</div>
+
+<div class="success-panel" id="successPanel">
+  <div class="event-label">Registration Confirmed</div>
+  <h2>You're on the list.</h2>
+  <p>Your QR code has been emailed to you. Please present it at the entrance on the day of the event.</p>
+  <div id="qrcode"></div>
+  <p class="reg-id" id="regIdDisplay"></p>
+  <p style="font-size:12px;color:#999;margin-top:16px;">Screenshot or save this QR code as a backup.</p>
+</div>
+
+<script>
+  // ─── CONFIGURATION — fill these in ───────────────────────────────────────────
+  const SUPABASE_URL    = 'https://lwnqxwrseremedyrjymq.supabase.co';
+  const SUPABASE_ANON   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3bnF4d3JzZXJlbWVkeXJqeW1xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MzIwNzgsImV4cCI6MjA4ODEwODA3OH0.NwFfsqwdCP6gka8xDkaMpnIvnQ7hqLjimHrNmcc4ivA';
+  const EMAILJS_USER    = 'YOUR_EMAILJS_PUBLIC_KEY';
+  const EMAILJS_SERVICE = 'YOUR_EMAILJS_SERVICE_ID';
+  const EMAILJS_TEMPLATE= 'YOUR_EMAILJS_TEMPLATE_ID';
+  const CHECKIN_URL     = 'https://YOUR-USERNAME.github.io/YOUR-REPO/checkin.html';
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+  emailjs.init(EMAILJS_USER);
+
+  async function handleRegister() {
+    const btn = document.getElementById('submitBtn');
+    const status = document.getElementById('statusMsg');
+    status.className = 'status';
+    status.style.display = 'none';
+
+    const firstName = document.getElementById('firstName').value.trim();
+    const surname   = document.getElementById('surname').value.trim();
+    const email     = document.getElementById('email').value.trim();
+    const phone     = document.getElementById('phone').value.trim();
+    const dpNumber  = document.getElementById('dpNumber').value.trim();
+
+    if (!firstName || !surname || !email || !dpNumber) {
+      status.textContent = 'Please fill in all required fields.';
+      status.className = 'status error';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Registering…';
+
+    try {
+      // 1. Save to Supabase
+      const { data, error } = await db
+        .from('registrations')
+        .insert([{ first_name: firstName, surname, email, phone, dp_number: dpNumber }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const regId = data.id;
+      const qrUrl = `${CHECKIN_URL}?id=${regId}`;
+
+      // 2. Send email via EmailJS
+      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+        to_name:    `${firstName} ${surname}`,
+        to_email:   email,
+        dp_number:  dpNumber,
+        reg_id:     regId,
+        checkin_url: qrUrl,
+      });
+
+      // 3. Show success + QR
+      document.getElementById('formCard').style.display = 'none';
+      const successPanel = document.getElementById('successPanel');
+      successPanel.classList.add('visible');
+      document.getElementById('regIdDisplay').textContent = `Registration ID: ${regId}`;
+
+      new QRCode(document.getElementById('qrcode'), {
+        text: qrUrl,
+        width: 200,
+        height: 200,
+        colorDark: '#0f0f0f',
+        colorLight: '#f5f2ed',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Something went wrong. Please try again or contact the organiser.';
+      status.className = 'status error';
+      btn.disabled = false;
+      btn.textContent = 'Register for the Event';
+    }
+  }
+</script>
+</body>
+</html>
